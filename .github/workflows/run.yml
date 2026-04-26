@@ -9,17 +9,29 @@ jobs:
   run:
     runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v4
+    # 🔥 ここが重要（envはここに置く）
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
 
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - run: npm install
+      - name: Install deps
+        run: npm install
 
-- run: npx tsx src/pipeline.ts
-  env:
-    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-    SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-    SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      # 👇 デバッグ（最初だけ使う）
+      - name: Debug env
+        run: |
+          echo "SUPABASE_URL=$SUPABASE_URL"
+          echo "SUPABASE_KEY=${SUPABASE_KEY:0:10}..." # 先頭だけ表示
+
+      - name: Run scraper
+        run: npx tsx src/pipeline.ts
