@@ -1,8 +1,7 @@
 import { supabase } from "./db"
-import { generateReport } from "./ai"
 import { sanxScraper } from "./scrapers/sanx"
 
-// 👇 ここにサイトを追加していく
+// 👇 今はサンエックスだけ
 const scrapers = [
   sanxScraper,
 ]
@@ -25,7 +24,7 @@ async function run() {
       try {
         console.log("processing:", url)
 
-        // 🔍 既存チェック（articlesテーブル）
+        // 🔍 既存チェック
         const { data: existing, error: checkError } = await supabase
           .from("articles")
           .select("*")
@@ -37,42 +36,29 @@ async function run() {
           continue
         }
 
-        let article
-
+        // 既にある → スキップ
         if (existing) {
           console.log("already exists:", url)
-          article = existing
-        } else {
-          console.log("scraping:", url)
-
-          const data = await scraper.getDetail(url)
-
-          const { data: inserted, error: insertError } = await supabase
-            .from("articles")
-            .insert([data])
-            .select()
-            .single()
-
-          if (insertError) {
-            console.error("INSERT ERROR:", insertError)
-            continue
-          }
-
-          console.log("saved:", inserted.title)
-          article = inserted
+          continue
         }
 
-        // 🤖 AI生成
-let report = ""
+        // 新規だけスクレイピング
+        console.log("scraping:", url)
 
-try {
-  report = await generateReport(article.text || "")
-} catch (e) {
-  console.error("AI ERROR:", e.message)
-  report = "AI skipped (quota)"
-}
+        const data = await scraper.getDetail(url)
 
-        // ⏱ API制限対策
+        const { error: insertError } = await supabase
+          .from("articles")
+          .insert([data])
+
+        if (insertError) {
+          console.error("INSERT ERROR:", insertError)
+          continue
+        }
+
+        console.log("saved:", data.title)
+
+        // ⏱ 負荷対策
         await new Promise((r) => setTimeout(r, 1000))
 
       } catch (e) {
