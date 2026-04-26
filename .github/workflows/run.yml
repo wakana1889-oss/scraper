@@ -15,16 +15,20 @@ jobs:
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - run: npm install
+      - name: Install deps
+        run: npm install
 
-      # 👇 これ追加（超重要）
-      - run: npx playwright install --with-deps
+      # 🔥 ここ絶対この位置
+      - name: Install Playwright
+        run: npx playwright install --with-deps
 
       - name: Run scraper
         run: npx tsx src/pipeline.ts

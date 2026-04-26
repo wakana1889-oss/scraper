@@ -1,74 +1,83 @@
-import { getDetailUrls, scrapeDetail } from "./scrape"
-import { supabase } from "./supabase"
+import { supabase } from "./db"
 import { generateReport } from "./ai"
+import { sanxScraper } from "./scrapers/sanx"
+
+// 👇 ここにサイトを追加していく
+const scrapers = [
+  sanxScraper,
+]
 
 async function run() {
   console.log("start")
 
-  const urls = await getDetailUrls()
-  console.log("URL count:", urls.length)
+  for (const scraper of scrapers) {
+    if (!scraper) {
+      console.error("scraper is undefined")
+      continue
+    }
 
-  for (const url of urls) {
-    try {
-      let data: any
+    console.log(`=== SITE: ${scraper.name} ===`)
 
-      // 🔍 既存チェック
-      const { data: existing, error: checkError } = await supabase
-        .from("raw")
-        .select("*")
-        .eq("source_url", url)
-        .maybeSingle()
+    const urls = await scraper.getList()
+    console.log("URL count:", urls.length)
 
-      if (checkError) {
-        console.error("CHECK ERROR:", checkError)
-        continue
-      }
+    for (const url of urls) {
+      try {
+        console.log("processing:", url)
 
-      // 📦 分岐
-      if (existing) {
-        console.log("already exists, generating report:", url)
-        data = existing
-      } else {
-        console.log("scraping:", url)
+        // 🔍 既存チェック（articlesテーブル）
+        const { data: existing, error: checkError } = await supabase
+          .from("articles")
+          .select("*")
+          .eq("url", url)
+          .maybeSingle()
 
-        data = await scrapeDetail(url)
-
-        const { error: insertError } = await supabase
-          .from("raw")
-          .insert([data])
-
-        if (insertError) {
-          console.error("INSERT ERROR:", insertError)
+        if (checkError) {
+          console.error("CHECK ERROR:", checkError)
           continue
         }
 
-        console.log("saved raw:", data.title)
-      }
+        let article
 
-      // 🤖 AI記事生成
-      const report = await generateReport(data.text)
+        if (existing) {
+          console.log("already exists:", url)
+          article = existing
+        } else {
+          console.log("scraping:", url)
 
-      console.log("saving report:", data.title)
+          const data = await scraper.getDetail(url)
 
-      const { error: reportError } = await supabase
-        .from("auto_reports")
-        .insert([
-          {
-            raw_id: data.id || null,
-            title: data.title,
-            summary: report
+          const { data: inserted, error: insertError } = await supabase
+            .from("articles")
+            .insert([data])
+            .select()
+            .single()
+
+          if (insertError) {
+            console.error("INSERT ERROR:", insertError)
+            continue
           }
-        ])
 
-      if (reportError) {
-        console.error("REPORT ERROR:", reportError)
+          console.log("saved:", inserted.title)
+          article = inserted
+        }
+
+        // 🤖 AI生成
+let report = ""
+
+try {
+  report = await generateReport(article.text || "")
+} catch (e) {
+  console.error("AI ERROR:", e.message)
+  report = "AI skipped (quota)"
+}
+
+        // ⏱ API制限対策
+        await new Promise((r) => setTimeout(r, 1000))
+
+      } catch (e) {
+        console.error("UNEXPECTED ERROR:", url, e)
       }
-
-      // ⏱ 間隔（重要）
-      await new Promise((r) => setTimeout(r, 1000))
-
-    } catch (e) {
-      console.error("UNEXPECTED ERROR:", url, e)
     }
   }
 
