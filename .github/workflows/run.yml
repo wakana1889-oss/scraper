@@ -2,36 +2,29 @@ name: scraper
 
 on:
   schedule:
-    - cron: '0 * * * *' # 毎時間
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
 
-    # 🔥 ここが重要（envはここに置く）
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install deps
-        run: npm install
+      - run: npm install
 
-      # 👇 デバッグ（最初だけ使う）
-      - name: Debug env
-        run: |
-          echo "SUPABASE_URL=$SUPABASE_URL"
-          echo "SUPABASE_KEY=${SUPABASE_KEY:0:10}..." # 先頭だけ表示
+      # 👇 これ追加（超重要）
+      - run: npx playwright install --with-deps
 
       - name: Run scraper
         run: npx tsx src/pipeline.ts
