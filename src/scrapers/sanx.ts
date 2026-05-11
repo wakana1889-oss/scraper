@@ -1,68 +1,105 @@
 import { chromium } from "playwright"
 
+export type NewsItem = {
+  site: string
+  title: string
+  url: string
+  image_url: string | null
+  summary: string | null
+  published_at: string | null
+}
+
 export const sanxScraper = {
   name: "sanx",
 
-  // =========================
-  // 一覧 → URL取得（超安定版）
-  // =========================
   async getList(): Promise<string[]> {
     const browser = await chromium.launch()
     const page = await browser.newPage()
 
-    await page.goto("https://www.san-x.co.jp/ja/store-blogs/", {
-      waitUntil: "networkidle"
-    })
+    try {
+      await page.goto("https://www.san-x.co.jp/ja/store-blogs/", {
+        waitUntil: "networkidle",
+        timeout: 60000,
+      })
 
-    // ✅ URLルールで抽出（DOM依存しない）
-    const urls = await page.$$eval(
-      "a[href*='/store-blogs/']",
-      els => els.map(el => (el as HTMLAnchorElement).href)
-    )
+      const urls = await page.$$eval("a[href*='/store-blogs/']", (els) =>
+        els.map((el) => (el as HTMLAnchorElement).href)
+      )
 
-    await browser.close()
+      const filtered = urls.filter(
+        (url) =>
+          url !== "https://www.san-x.co.jp/ja/store-blogs/" &&
+          !url.endsWith("/store-blogs/")
+      )
 
-    // ✅ 一覧ページ自身を除外 + 重複削除
-    const filtered = urls.filter(
-      u =>
-        u !== "https://www.san-x.co.jp/ja/store-blogs/" &&
-        !u.endsWith("/store-blogs/")
-    )
-
-    return [...new Set(filtered)]
+      return [...new Set(filtered)]
+    } finally {
+      await browser.close()
+    }
   },
 
-  // =========================
-  // 詳細ページ → データ取得
-  // =========================
-  async getDetail(url: string) {
+  async getDetail(url: string): Promise<NewsItem> {
     const browser = await chromium.launch()
     const page = await browser.newPage()
 
-    await page.goto(url, {
-      waitUntil: "domcontentloaded"
-    })
+    try {
+      await page.goto(url, {
+        waitUntil: "domcontentloaded",
+        timeout: 60000,
+      })
 
-    // タイトル
-    const title = await page.$eval("h1", el =>
-      el.textContent?.trim() || ""
-    )
+      await page.waitForTimeout(1000)
 
-    // 本文（とりあえずp全部）
-    const text = await page.$$eval("p", els =>
-      els
-        .map(el => el.textContent?.trim())
-        .filter(Boolean)
-        .join("\n")
-    )
+      const data = await page.evaluate(() => {
+        const title =
+          document.querySelector("h1")?.textContent?.trim() ||
+          document.title.trim() ||
+          ""
 
-    await browser.close()
+        const text = Array.from(document.querySelectorAll("p"))
+          .map((el) => el.textContent?.trim())
+          .filter(Boolean)
+          .join("\n")
 
-    return {
-      site: "sanx",
-      url,
-      title,
-      text
+        const summary = text
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 160)
+
+        const image =
+          document
+            .querySelector('meta[property="og:image"]')
+            ?.getAttribute("content") ||
+          document.querySelector("img")?.getAttribute("src") ||
+          null
+
+        const imageUrl = image
+          ? new URL(image, location.origin).toString()
+          : null
+
+        const dateText =
+          document.querySelector("time")?.getAttribute("datetime") ||
+          document.querySelector("time")?.textContent?.trim() ||
+          null
+
+        return {
+          title,
+          summary,
+          image_url: imageUrl,
+          published_at: dateText,
+        }
+      })
+
+      return {
+        site: "sanx",
+        url,
+        title: data.title,
+        image_url: data.image_url,
+        summary: data.summary || null,
+        published_at: data.published_at || null,
+      }
+    } finally {
+      await browser.close()
     }
-  }
+  },
 }

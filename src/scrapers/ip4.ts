@@ -3,9 +3,6 @@ import type { Page } from "playwright"
 export const ip4Scraper = {
   name: "ip4",
 
-  // =========================
-  // 一覧取得
-  // =========================
   async getList(page: Page): Promise<string[]> {
     try {
       await page.goto(
@@ -16,7 +13,6 @@ export const ip4Scraper = {
         }
       )
 
-      // JSレンダリング待ち（少し短縮）
       await page.waitForTimeout(5000)
 
       const urls = await page.$$eval("a", (links) =>
@@ -30,132 +26,273 @@ export const ip4Scraper = {
       )
 
       return [...new Set(urls)]
-
     } catch (e) {
       console.error("IP4 getList ERROR:", e)
       return []
     }
   },
 
-  // =========================
-  // 詳細取得
-  // =========================
   async getDetail(page: Page, url: string) {
     try {
       await page.goto(url, {
-        waitUntil: "domcontentloaded",
+        waitUntil: "networkidle",
         timeout: 60000,
       })
 
-      await page.waitForTimeout(3000)
+      await page.waitForTimeout(8000)
 
-      const data = await page.evaluate(() => {
-        const NG = ["IP4", "株式会社", "アイピーフォー", "商品情報", "©"]
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight)
+      })
 
-        const text = document.body.innerText
-        const lines = text
-          .split("\n")
-          .map((l) => l.trim())
-          .filter((l) => l.length > 0)
+      await page.waitForTimeout(2000)
 
-        // =========================
-        // 🎯 タイトル
-        // =========================
-        let title = ""
+      const data = await page.evaluate(`
+        (() => {
+          const NG = [
+            "IP4",
+            "株式会社",
+            "アイピーフォー",
+            "商品情報",
+            "©"
+          ]
 
-        const base = lines.find(
-          (l) =>
-            l.includes("リラックマ") &&
-            l.length >= 5 &&
-            l.length <= 60 &&
-            !l.startsWith("・") &&
-            !NG.some((ng) => l.includes(ng))
-        )
+          function toAbsoluteUrl(src) {
+            if (!src) return ""
 
-        const sub = lines.find(
-          (l) =>
-            (l.includes("コレクション") ||
-              l.includes("ポーチ") ||
-              l.includes("ライト") ||
-              l.includes("マスコット")) &&
-            l.length < 50
-        )
+            try {
+              return new URL(src, location.origin).toString()
+            } catch {
+              return ""
+            }
+          }
 
-        if (base && sub && !base.includes(sub)) {
-          title = `${base} ${sub}`
-        } else if (base) {
-          title = base
-        }
+          function pickFromSrcset(srcset) {
+            if (!srcset) return ""
 
-        // fallback
-        if (!title) {
-          const candidate = lines.find(
+            const first = srcset
+              .split(",")
+              .map((s) => s.trim().split(" ")[0])
+              .find(Boolean)
+
+            return first || ""
+          }
+
+          const text = document.body.innerText
+
+          const lines = text
+            .split("\\n")
+            .map((l) => l.trim())
+            .filter((l) => l.length > 0)
+
+          let title = ""
+
+          const base = lines.find(
             (l) =>
-              l.includes("リラックマ") &&
+              (
+                l.includes("リラックマ") ||
+                l.includes("コリラックマ") ||
+                l.includes("キイロイトリ") ||
+                l.includes("チャイロイコグマ")
+              ) &&
+              l.length >= 5 &&
+              l.length <= 80 &&
               !l.startsWith("・") &&
+              !l.includes("IP4 Inc.") &&
+              !l.includes("アイピーフォー株式会社") &&
+              !l.includes("商品情報") &&
               !NG.some((ng) => l.includes(ng))
           )
 
-          if (candidate) title = candidate
-        }
+          const sub = lines.find(
+            (l) =>
+              (
+                l.includes("コレクション") ||
+                l.includes("ポーチ") ||
+                l.includes("ライト") ||
+                l.includes("マスコット") ||
+                l.includes("フィギュア") ||
+                l.includes("チャーム") ||
+                l.includes("リング")
+              ) &&
+              l.length < 60
+          )
 
-        if (!title || title.length < 5) {
-          title = ""
-        }
-
-        // =========================
-        // 🖼 画像
-        // =========================
-        let image = ""
-
-        const imgs = Array.from(document.querySelectorAll("img"))
-
-        const mainImg = imgs.find((img) =>
-          (img as HTMLImageElement).src.includes("/cupsuletoy/")
-        )
-
-        if (mainImg) {
-          image = (mainImg as HTMLImageElement).src
-        } else if (imgs[0]) {
-          image = (imgs[0] as HTMLImageElement).src
-        }
-
-        // =========================
-        // 💰 価格 & 発売日
-        // =========================
-        let price: number | null = null
-        let release_date: string | null = null
-
-        for (const line of lines) {
-          if (!price) {
-            const m = line.match(/(\d{2,4})円/)
-            if (m) price = Number(m[1])
+          if (base && sub && !base.includes(sub)) {
+            title = base + " " + sub
+          } else if (base) {
+            title = base
           }
 
-          if (!release_date) {
-            const m = line.match(/(\d{4})年\s*(\d{1,2})月/)
-            if (m) {
-              release_date = `${m[1]}-${m[2].padStart(2, "0")}`
+          if (!title) {
+            const candidate = lines.find(
+              (l) =>
+                (
+                  l.includes("リラックマ") ||
+                  l.includes("コリラックマ") ||
+                  l.includes("キイロイトリ") ||
+                  l.includes("チャイロイコグマ")
+                ) &&
+                !l.startsWith("・") &&
+                !NG.some((ng) => l.includes(ng))
+            )
+
+            if (candidate) {
+              title = candidate
             }
           }
-        }
 
-        // 正規化
-        if (title) {
-          title = title
-            .replace(/（.*?）/g, "")
-            .replace(/\s+/g, " ")
-            .trim()
-        }
+          if (
+            title.includes("IP4 Inc.") ||
+            title.includes("アイピーフォー")
+          ) {
+            title = ""
+          }
 
-        return {
-          title,
-          text,
-          image,
-          price,
-          release_date,
-        }
+          if (!title || title.length < 5) {
+            title = ""
+          }
+
+          const imgCandidates = Array.from(
+            document.querySelectorAll("img")
+          ).map((img) => {
+            const src =
+              img.getAttribute("src") ||
+              img.getAttribute("data-src") ||
+              img.getAttribute("data-original") ||
+              img.getAttribute("data-lazy-src") ||
+              pickFromSrcset(img.getAttribute("srcset")) ||
+              pickFromSrcset(img.getAttribute("data-srcset"))
+
+            return toAbsoluteUrl(src)
+          })
+
+          const bgCandidates = Array.from(
+            document.querySelectorAll("*")
+          ).map((el) => {
+            const style = window.getComputedStyle(el)
+            const bg = style.backgroundImage
+
+            if (!bg || bg === "none") return ""
+
+            const match = bg.match(/url\\(["']?(.*?)["']?\\)/)
+
+            if (!match) return ""
+
+            return toAbsoluteUrl(match[1])
+          })
+
+          const candidates = [
+            ...imgCandidates,
+            ...bgCandidates,
+          ]
+            .filter(Boolean)
+            .filter(
+              (src, index, self) =>
+                self.indexOf(src) === index
+            )
+            .filter((src) => {
+              const lower = src.toLowerCase()
+
+              if (lower.includes("logo")) return false
+              if (lower.includes("ip4inc")) return false
+              if (lower.includes("company")) return false
+              if (lower.includes("corporate")) return false
+              if (lower.includes("banner")) return false
+              if (lower.includes("header")) return false
+              if (lower.includes("footer")) return false
+              if (lower.includes("icon")) return false
+              if (lower.includes("noimage")) return false
+              if (lower.includes("avatar")) return false
+              if (lower.includes("thumb")) return false
+              if (lower.includes("spacer")) return false
+
+              return (
+                lower.includes("/cupsuletoy/") ||
+                lower.includes("/uploads/") ||
+                lower.includes("/wp-content/") ||
+                lower.includes(".jpg") ||
+                lower.includes(".jpeg") ||
+                lower.includes(".png") ||
+                lower.includes(".webp")
+              )
+            })
+
+          const preferred =
+            candidates.find(
+              (src) =>
+                src.includes("/cupsuletoy/") &&
+                !src.toLowerCase().includes("logo")
+            ) ||
+            candidates.find(
+              (src) =>
+                src.includes("/uploads/") &&
+                !src.toLowerCase().includes("logo")
+            ) ||
+            candidates.find(
+              (src) =>
+                src.includes("/wp-content/") &&
+                !src.toLowerCase().includes("logo")
+            ) ||
+            candidates.find((src) =>
+              src.toLowerCase().includes("rilakkuma")
+            ) ||
+            candidates.find((src) =>
+              src.toLowerCase().includes("item")
+            ) ||
+            candidates[0]
+
+          const image = preferred || ""
+
+          let price = null
+          let release_date = null
+
+          for (const line of lines) {
+            if (!price) {
+              const m = line.match(/(\\d{2,4})円/)
+              if (m) {
+                price = Number(m[1])
+              }
+            }
+
+            if (!release_date) {
+              const m = line.match(
+                /(\\d{4})年\\s*(\\d{1,2})月/
+              )
+
+              if (m) {
+                release_date =
+                  m[1] + "-" + m[2].padStart(2, "0")
+              }
+            }
+          }
+
+          if (title) {
+            title = title
+              .replace(/（.*?）/g, "")
+              .replace(/\\s+/g, " ")
+              .trim()
+          }
+
+          return {
+            title,
+            text,
+            image,
+            price,
+            release_date,
+            candidates,
+          }
+        })()
+      `)
+
+      console.log("IP4 DETAIL")
+      console.log({
+        title: data.title,
+        image: data.image,
       })
+
+      console.log("IMAGE CANDIDATES")
+      console.log(data.candidates)
 
       return {
         site: "ip4",
@@ -167,7 +304,6 @@ export const ip4Scraper = {
         release_date: data.release_date,
         manufacturer: "IP4",
       }
-
     } catch (e) {
       console.error("IP4 getDetail ERROR:", url, e)
 
