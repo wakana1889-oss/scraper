@@ -24,8 +24,6 @@ async function getProduct(id: string) {
   return data
 }
 
-import type { Metadata } from "next"
-
 export async function generateMetadata(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<Metadata> {
