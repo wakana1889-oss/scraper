@@ -560,20 +560,13 @@ const eventArticles = useMemo(
         ユーザー投稿から「今ありそう」な店舗も探せます。
       </p>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-amber-700 shadow-sm">
-          🔥 目撃情報対応
-        </span>
+      <div className="mt-5 rounded-3xl bg-white/80 p-4 text-sm font-bold leading-7 text-slate-600 shadow-sm backdrop-blur">
+  このサイトは、みなさんの目撃投稿によって最新情報が更新されています。
+  「あった」「なかった」「売り切れ」などの投稿で、
+  リラックマガチャの設置情報を一緒に育てていけるサービスです 🧸
+</div>
+</div>
 
-        <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-green-700 shadow-sm">
-          📍 関東中心
-        </span>
-
-        <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-pink-700 shadow-sm">
-          🧸 リラックマ特化
-        </span>
-      </div>
-    </div>
 
     <div className="flex shrink-0 items-center justify-center">
       <div className="rounded-[32px] bg-white/80 p-4 shadow-lg backdrop-blur">

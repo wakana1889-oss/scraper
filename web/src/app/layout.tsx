@@ -14,6 +14,9 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "リラックマのガチャ設置場所まとめ",
+  verification: {
+  google: "oKdEBQpwzWGBfBdZ48Rby5jnD0Mf5hKFadmSksxIkQo",
+},
   description:
     "リラックマ・コリラックマ・キイロイトリ・チャイロイコグマのガチャガチャ設置場所や目撃情報を探せるマップサービスです。",
   openGraph: {
