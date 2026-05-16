@@ -46,6 +46,23 @@ type News = {
   published_at: string | null
 }
 
+type RecentSighting = {
+  id: string
+  article_id: string
+  store_id: string | null
+  status: "found" | "not_found" | "sold_out"
+  comment: string | null
+  store_name: string | null
+  store_address: string | null
+  created_at: string
+  articles?: Article | null
+  stores?: {
+    id: string
+    name: string
+    address: string | null
+  } | null
+}
+
 function getDistanceKm(
   lat1: number,
   lon1: number,
@@ -63,6 +80,29 @@ function getDistanceKm(
       Math.sin(dLon / 2) ** 2
 
   return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+function formatAgo(dateString: string) {
+  const diff = Date.now() - new Date(dateString).getTime()
+  const minutes = Math.floor(diff / 1000 / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  if (minutes < 1) return "たった今"
+  if (minutes < 60) return `${minutes}分前`
+  if (hours < 24) return `${hours}時間前`
+  return `${days}日前`
+}
+
+function statusLabel(status: RecentSighting["status"]) {
+  if (status === "found") return "あった"
+  if (status === "not_found") return "なかった"
+  return "売り切れ"
+}
+
+function statusClass(status: RecentSighting["status"]) {
+  if (status === "found") return "bg-green-50 text-green-600"
+  if (status === "not_found") return "bg-slate-100 text-slate-600"
+  return "bg-orange-50 text-orange-600"
 }
 
 export default function Home() {
@@ -87,6 +127,7 @@ export default function Home() {
   >
 >({})
   const [news, setNews] = useState<News[]>([])
+  const [recentSightings, setRecentSightings] = useState<RecentSighting[]>([])
 
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
   const [selectedLocation, setSelectedLocation] =
@@ -120,6 +161,18 @@ export default function Home() {
   useEffect(() => {
   fetchInitialArticles()
   fetchNews()
+  fetchRecentSightings()
+  async function fetchRecentSightings() {
+  const res = await fetch("/api/sightings")
+
+  if (!res.ok) {
+    console.error("recent sightings fetch error")
+    return
+  }
+
+  const json = await res.json()
+  setRecentSightings(json.sightings || [])
+}
   async function fetchCandidateStores() {
   const { data, error } = await supabase
     .from("stores")
@@ -186,6 +239,7 @@ export default function Home() {
   }, [keyword])
 
   async function fetchInitialArticles() {
+
     setLoading(true)
     setErrorMessage(null)
 
@@ -206,17 +260,28 @@ export default function Home() {
   }
 
   async function fetchNews() {
-    const { data, error } = await supabase
-      .from("news")
-      .select("id, site, title, url, image_url, summary, published_at")
-      .order("created_at", { ascending: false })
-      .limit(6)
+  const { data, error } = await supabase
+    .from("news")
+    .select("id, site, title, url, image_url, summary, published_at")
+    .order("created_at", { ascending: false })
+    .limit(6)
 
-    if (error) return
+  if (error) return
 
-    setNews((data || []) as News[])
+  setNews((data || []) as News[])
+}
+
+async function fetchRecentSightings() {
+  const res = await fetch("/api/sightings")
+
+  if (!res.ok) {
+    console.error("recent sightings fetch error")
+    return
   }
 
+  const json = await res.json()
+  setRecentSightings(json.sightings || [])
+}
   async function searchArticles() {
     if (!keyword.trim()) {
       setShowSuggestions(false)
@@ -658,6 +723,106 @@ const eventArticles = useMemo(
     </div>
   </section>
 )}
+<section className="mb-4 rounded-3xl bg-white p-4 shadow-sm">
+  <div className="mb-3 flex items-center justify-between gap-3">
+    <div>
+      <h2 className="font-black">
+  📝 {selectedArticle ? "この商品の最近の目撃情報" : "最近の目撃情報"}
+</h2>
+      <p className="mt-1 text-xs text-slate-400">
+        ユーザー投稿された最新のガチャ目撃情報
+      </p>
+    </div>
+
+    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+      {recentSightings.length}件
+    </span>
+  </div>
+
+  {recentSightings.length === 0 ? (
+    <p className="text-sm text-slate-400">
+      まだ目撃投稿はありません
+    </p>
+  ) : (
+    <div className="flex gap-3 overflow-x-auto pb-2">
+      {recentSightings
+  .filter((sighting) =>
+    selectedArticle
+      ? sighting.article_id === selectedArticle.id
+      : true
+  )
+  .map((sighting) => {
+        const article = sighting.articles
+        const storeName =
+          sighting.stores?.name || sighting.store_name || "店舗名未設定"
+
+        return (
+          <button
+  key={sighting.id}
+  type="button"
+  onClick={() => {
+    if (article) {
+      selectArticle(article)
+    }
+  }}
+  className="w-[280px] shrink-0 rounded-3xl border border-slate-100 bg-white p-3 text-left transition hover:bg-slate-50"
+>
+  <div className="flex gap-3">
+    {article?.image_url ? (
+      <img
+        src={article.image_url}
+        alt={article.title}
+        className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+      />
+    ) : (
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xs text-slate-400">
+        No Image
+      </div>
+    )}
+
+    <div className="min-w-0 flex-1">
+      <div className="mb-2 flex items-center gap-2">
+        <span
+          className={`rounded-full px-3 py-1 text-[11px] font-black ${statusClass(
+            sighting.status
+          )}`}
+        >
+          {statusLabel(sighting.status)}
+        </span>
+
+        <span className="text-[11px] font-bold text-slate-400">
+          {formatAgo(sighting.created_at)}
+        </span>
+      </div>
+                <p className="line-clamp-2 text-sm font-black">
+                  {article?.title || "商品名未設定"}
+                </p>
+
+                <p className="mt-1 line-clamp-1 text-xs font-bold text-slate-500">
+  {storeName}
+</p>
+<a
+  href={`https://www.amazon.co.jp/s?k=${encodeURIComponent(article?.title || "")}&tag=wakana1889-22`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="mt-2 inline-flex rounded-full bg-amber-400 px-3 py-1 text-[11px] font-black text-black"
+>
+  🛒 Amazon
+</a>
+           {sighting.comment && (
+  <p className="mt-3 line-clamp-2 rounded-2xl bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+    {sighting.comment}
+  </p>
+)}
+
+    </div>
+  </div>
+</button>
+)
+      })}
+    </div>
+  )}
+</section>
         <section className="mb-4 grid gap-4 lg:grid-cols-2">
           <div className="rounded-3xl bg-white p-4 shadow-sm">
             <p className="text-xs font-black text-slate-400">選択中の商品</p>
@@ -705,9 +870,9 @@ const eventArticles = useMemo(
       articleId={selectedArticle.id}
       articleTitle={selectedArticle.title}
       onSubmitted={() => {
-        fetchRecentSightings()
-        selectArticle(selectedArticle)
-      }}
+  fetchRecentSightings()
+  selectArticle(selectedArticle)
+}}
     />
   </div>
 )}
@@ -861,6 +1026,14 @@ const eventArticles = useMemo(
                     <p className="line-clamp-2 text-sm font-black">
                       {article.title}
                     </p>
+                    <a
+  href={`https://www.amazon.co.jp/s?k=${encodeURIComponent(article.title)}&tag=wakana1889-22`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="mt-2 inline-flex rounded-full bg-amber-400 px-3 py-1 text-xs font-black text-black"
+>
+  Amazon
+</a>
                     <p className="mt-2 text-xs font-bold text-slate-400">
                       この店舗で取扱い
                     </p>
@@ -906,6 +1079,13 @@ const eventArticles = useMemo(
                         <p className="line-clamp-2 text-sm font-black">
                           {location.name}
                         </p>
+
+                        <a
+  href={`/stores/${location.id}`}
+  className="mt-2 inline-block text-xs font-bold text-blue-600 hover:underline"
+>
+  店舗詳細を見る
+</a>
 
                         {location.address && (
                           <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">

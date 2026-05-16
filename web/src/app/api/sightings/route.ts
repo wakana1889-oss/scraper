@@ -6,55 +6,49 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_KEY!
 )
 
-export async function POST(req: Request) {
-  try {
-    const body = await req.json()
-
-    const {
+export async function GET() {
+  const { data, error } = await supabase
+    .from("sightings")
+    .select(`
+      id,
       article_id,
       store_id,
+      location_id,
       status,
       comment,
       store_name,
       store_address,
-    } = body
-
-    if (!status) {
-      return NextResponse.json(
-        { error: "status is required" },
-        { status: 400 }
+      source,
+      created_at,
+      articles (
+        id,
+        title,
+        url,
+        image_url,
+        type
+      ),
+      stores (
+        id,
+        name,
+        address,
+        prefecture,
+        city,
+        latitude,
+        longitude
       )
-    }
+    `)
+    .order("created_at", { ascending: false })
+    .limit(20)
 
-    const result = await supabase
-      .from("sightings")
-      .insert({
-        article_id: article_id || null,
-        store_id: store_id || null,
-        status,
-        comment: comment || null,
-        store_name: store_name || null,
-        store_address: store_address || null,
-        source: "user",
-      })
-      .select()
-      .single()
-
-    if (result.error) {
-      return NextResponse.json(
-        { error: result.error.message },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: result.data,
-    })
-  } catch {
+  if (error) {
+    console.error("sightings fetch error:", error)
     return NextResponse.json(
-      { error: "unexpected error" },
+      { error: error.message },
       { status: 500 }
     )
   }
+
+  return NextResponse.json({
+    sightings: data ?? [],
+  })
 }

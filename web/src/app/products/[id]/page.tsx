@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import { createClient } from "@supabase/supabase-js"
 import type { Metadata } from "next"
 import SightingButtons from "@/components/SightingButtons"
-import { Metadata } from "next"
+
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,66 +24,49 @@ async function getProduct(id: string) {
   return data
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params
-  const article = await getProduct(id)
+import type { Metadata } from "next"
 
-  if (!article) return { title: "商品が見つかりません" }
+export async function generateMetadata(
+  { params }: { params: Promise<{ id: string }> }
+): Promise<Metadata> {
 
-  return {
-    title: `${article.title}｜ガチャガチャ設置店舗情報`,
-    description: `${article.title} のガチャガチャ設置店舗・取扱店舗を確認できます。`,
-    openGraph: {
-      title: `${article.title}｜ガチャガチャ設置店舗情報`,
-      description: `${article.title} のガチャガチャ設置店舗・取扱店舗を確認できます。`,
-      images: article.image_url ? [article.image_url] : [],
-    },
-  }
-}
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}): Promise<Metadata> {
   const { id } = await params
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_KEY!
-  )
-
-  const { data } = await supabase
+  const { data: article } = await supabase
     .from("articles")
     .select("title, image_url")
     .eq("id", id)
     .single()
 
-  const title = data?.title
-    ? `${data.title}｜リラックマのガチャ設置場所まとめ`
-    : "リラックマのガチャ設置場所まとめ"
-
-  const description =
-    "リラックマのガチャ設置場所・目撃情報・候補店舗を探せます。"
+  if (!article) {
+    return {
+      title: "商品が見つかりません",
+    }
+  }
 
   return {
-    title,
-    description,
+    title: `${article.title}｜リラックマのガチャ設置場所まとめ`,
+
+    description:
+      `${article.title} の設置場所・目撃情報・取扱店舗を掲載しています。`,
+
     openGraph: {
-      title,
-      description,
-      images: data?.image_url
-        ? [
-            {
-              url: data.image_url,
-            },
-          ]
-        : [],
+      title: `${article.title}｜リラックマのガチャ設置場所まとめ`,
+      description:
+        `${article.title} の設置場所・目撃情報まとめ`,
+      images: article.image_url
+        ? [article.image_url]
+        : ["/ogp.png"],
     },
+
     twitter: {
       card: "summary_large_image",
-      title,
-      description,
-      images: data?.image_url ? [data.image_url] : [],
+      title: `${article.title}｜リラックマのガチャ設置場所まとめ`,
+      description:
+        `${article.title} の設置場所・目撃情報まとめ`,
+      images: article.image_url
+        ? [article.image_url]
+        : ["/ogp.png"],
     },
   }
 }
@@ -174,6 +157,15 @@ const sightingSummary: Record<
               <h1 className="mt-2 text-2xl font-black leading-snug">
                 {article.title}
               </h1>
+
+              <a
+  href={`https://www.amazon.co.jp/s?k=${encodeURIComponent(article.title)}&tag=wakana1889-22`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="mt-4 inline-flex items-center rounded-2xl bg-amber-400 px-5 py-3 text-sm font-black text-black transition hover:scale-[1.02]"
+>
+  🛒 Amazonで探す
+</a>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600">
