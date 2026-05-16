@@ -1288,6 +1288,25 @@ const eventArticles = useMemo(
     </a>
   </div>
 </div>
+<footer className="mt-10 border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+ <div className="flex flex-wrap items-center justify-center gap-4">
+  <a
+    href="/about"
+    className="font-bold hover:text-slate-900"
+  >
+    このサイトについて
+  </a>
+
+  <a
+    href="/privacy"
+    className="font-bold hover:text-slate-900"
+  >
+    プライバシーポリシー
+  </a>
+
+  <span>© リラックマのガチャ設置場所まとめ</span>
+</div>
+</footer>
     </main>
   )
 }
