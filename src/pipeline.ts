@@ -9,9 +9,14 @@ import { chromium } from "playwright"
 
 import { sanxScraper } from "./scrapers/sanx"
 import { ip4Scraper } from "./scrapers/ip4"
+import { sanxEventsScraper } from "./scrapers/sanxEvents"
+// import { sanxGoodsScraper } from "./scrapers/sanxGoods"
+
+type ArticleType = "goods" | "event" | "news"
 
 type ScrapedItem = {
   site: string
+  type?: ArticleType
   title: string
   url: string
   text?: string | null
@@ -19,6 +24,7 @@ type ScrapedItem = {
   price?: number | null
   release_date?: string | null
   manufacturer?: string | null
+  published_at?: string | null
 }
 
 const supabase = createClient(
@@ -55,12 +61,14 @@ async function upsertArticle(item: ScrapedItem) {
     .upsert(
       {
         site: item.site,
+        type: item.type || "goods",
         url: item.url,
         title: item.title,
         image_url: item.image_url,
         price: item.price || null,
         release_date: item.release_date || null,
         manufacturer: item.manufacturer || null,
+        published_at: item.published_at || null,
       },
       { onConflict: "url" }
     )
@@ -108,6 +116,48 @@ async function runNews() {
   console.log(`news failed: ${failed}`)
 }
 
+async function runSanxEvents() {
+  console.log("sanx events scraping start")
+
+  const urls = await sanxEventsScraper.getList()
+
+  console.log(`sanx event urls: ${urls.length}`)
+
+  let success = 0
+  let failed = 0
+
+  for (const url of urls.slice(0, 20)) {
+    try {
+      console.log("event processing:", url)
+
+      const item = await sanxEventsScraper.getDetail(url)
+
+      if (!item.title || !item.url) {
+        console.log("skip event:", url)
+        continue
+      }
+
+      await upsertArticle({
+        site: item.site,
+        type: "event",
+        title: item.title,
+        url: item.url,
+        image_url: item.image_url || null,
+      })
+
+      success++
+      console.log("event updated:", item.title)
+    } catch (error) {
+      failed++
+      console.error("event failed:", url, error)
+    }
+  }
+
+  console.log("sanx events done")
+  console.log(`event success: ${success}`)
+  console.log(`event failed: ${failed}`)
+}
+
 async function runProducts() {
   console.log("product scraping start")
 
@@ -133,7 +183,10 @@ async function runProducts() {
           continue
         }
 
-        await upsertArticle(item)
+        await upsertArticle({
+          ...item,
+          type: "goods",
+        })
 
         success++
         console.log("product updated:", item.title)
@@ -156,6 +209,7 @@ async function run() {
 
   await runProducts()
   await runNews()
+  await runSanxEvents()
 
   console.log("done")
 }

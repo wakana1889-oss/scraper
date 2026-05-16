@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { createClient } from "@supabase/supabase-js"
 import type { Metadata } from "next"
 import SightingButtons from "@/components/SightingButtons"
+import { Metadata } from "next"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,7 +40,53 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
   }
 }
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
 
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_KEY!
+  )
+
+  const { data } = await supabase
+    .from("articles")
+    .select("title, image_url")
+    .eq("id", id)
+    .single()
+
+  const title = data?.title
+    ? `${data.title}｜リラックマのガチャ設置場所まとめ`
+    : "リラックマのガチャ設置場所まとめ"
+
+  const description =
+    "リラックマのガチャ設置場所・目撃情報・候補店舗を探せます。"
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: data?.image_url
+        ? [
+            {
+              url: data.image_url,
+            },
+          ]
+        : [],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: data?.image_url ? [data.image_url] : [],
+    },
+  }
+}
 export default async function ProductDetailPage({ params }: Props) {
   const { id } = await params
   const article = await getProduct(id)

@@ -58,7 +58,7 @@ export default function SightingButtons({
       },
       body: JSON.stringify({
         article_id: articleId,
-        location_id: storeId,
+        store_id: storeId,
         store_name: storeName,
         store_address: storeAddress,
         status,

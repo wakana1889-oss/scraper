@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { createClient } from "@supabase/supabase-js"
 import SightingButtons from "@/components/SightingButtons"
+import SubmitSightingForm from "@/components/SubmitSightingForm"
 
 const Map = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -18,6 +19,9 @@ type Article = {
   id: string
   title: string
   image_url: string | null
+  type: "goods" | "event" | "news" | null
+  url?: string | null
+  published_at?: string | null
 }
 
 type Location = {
@@ -27,9 +31,9 @@ type Location = {
   latitude: number
   longitude: number
 }
-
 type LocationWithDistance = Location & {
   distance?: number
+  type?: "sighted" | "candidate"
 }
 
 type News = {
@@ -167,7 +171,7 @@ export default function Home() {
     const timer = setTimeout(async () => {
       const { data, error } = await supabase
         .from("articles")
-        .select("id, title, image_url")
+        .select("id, title, image_url, type, url")
         .eq("site", "ip4")
         .ilike("title", `%${q}%`)
         .limit(8)
@@ -185,12 +189,11 @@ export default function Home() {
     setLoading(true)
     setErrorMessage(null)
 
-    const { data, error } = await supabase
-      .from("articles")
-      .select("id, title, image_url")
-      .eq("site", "ip4")
-      .order("created_at", { ascending: false })
-      .limit(30)
+   const { data, error } = await supabase
+  .from("articles")
+  .select("id, title, image_url, type, url, published_at")
+  .order("published_at", { ascending: false, nullsFirst: false })
+  .limit(80)
 
     if (error) {
       setErrorMessage(error.message)
@@ -233,7 +236,7 @@ export default function Home() {
 
     const { data, error } = await supabase
       .from("articles")
-      .select("id, title, image_url")
+      .select("id, title, image_url, type, url")
       .eq("site", "ip4")
       .ilike("title", `%${keyword}%`)
       .limit(50)
@@ -262,93 +265,128 @@ export default function Home() {
     setShowSuggestions(false)
     setLoading(true)
 
-    const { data, error } = await supabase
-      .from("article_locations")
-      .select(
-        `
-        location:locations (
-          id,
-          name,
-          address,
-          latitude,
-          longitude
-        )
-      `
-      )
-      .eq("article_id", article.id)
+const { data, error } = await supabase
+  .from("article_stores")
+  .select(`
+    store:stores (
+      id,
+      name,
+      address,
+      latitude,
+     longitude
+    )
+  `)
+  .eq("article_id", article.id)
 
-    if (error) {
-      setErrorMessage(error.message)
-      setLoading(false)
-      return
-    }
+console.log("selected article id", article.id)
+console.log("selected article title", article.title)
+
+console.log("article_stores data", data)
+console.log("article_stores error", error)
+
+if (error) {
+  setErrorMessage(error.message)
+  setLoading(false)
+  return
+}
 
 const mapped: LocationWithDistance[] = (data || [])
-  .map((row: any) => row.location)
+  .map((row: any) => row.store)
   .filter(
-    (location: Location | null): location is Location =>
-      !!location &&
-      typeof location.latitude === "number" &&
-      typeof location.longitude === "number"
+    (store: Location | null): store is Location =>
+      !!store &&
+      typeof store.latitude === "number" &&
+      typeof store.longitude === "number"
   )
-  .map((location: Location): LocationWithDistance => {
-    if (!userPosition) {
-      return {
-        ...location,
-      }
-    }
 
-    return {
-      ...location,
-      distance: getDistanceKm(
+// 紐づき店舗がない場合は候補店舗を表示
+let displayBaseStores = mapped
+
+if (displayBaseStores.length === 0) {
+  const { data: candidateData, error: candidateError } = await supabase
+    .from("stores")
+    .select(`
+      id,
+      name,
+      address,
+      latitude,
+      longitude
+    `)
+    .not("latitude", "is", null)
+    .not("longitude", "is", null)
+    .limit(50)
+
+  if (!candidateError) {
+    displayBaseStores =
+      (candidateData || []) as LocationWithDistance[]
+  }
+}
+
+const withDistance = displayBaseStores.map((store) => ({
+  ...store,
+distance:
+  userPosition &&
+  typeof store.latitude === "number" &&
+  typeof store.longitude === "number"
+    ? getDistanceKm(
         userPosition.latitude,
         userPosition.longitude,
-        location.latitude,
-        location.longitude
-      ),
-    }
-  })
-  .sort((a, b) => {
-    if (typeof a.distance !== "number") return 1
-    if (typeof b.distance !== "number") return -1
-    return a.distance - b.distance
-  })
-const locationIds = mapped.map((loc) => loc.id)
+        store.latitude,
+        store.longitude
+      )
+    : undefined,
+}))
 
-if (locationIds.length > 0) {
+const storeIds = withDistance.map((store) => store.id)
+
+const summaryMap: Record<
+  string,
+  {
+    found: number
+    not_found: number
+    sold_out: number
+  }
+> = {}
+
+if (storeIds.length > 0) {
   const { data: summaryData } = await supabase
     .from("sighting_summary")
-.select(`
-  location_id,
-  found_count,
-  not_found_count,
-  sold_out_count
-`)
+    .select(`
+      store_id,
+      found_count,
+      not_found_count,
+      sold_out_count
+    `)
     .eq("article_id", article.id)
-    .in("store_id", locationIds)
-
-  const summaryMap: Record<
-    string,
-    {
-      found: number
-      not_found: number
-      sold_out: number
-    }
-  > = {}
+    .in("store_id", storeIds)
 
   ;(summaryData || []).forEach((row: any) => {
-   summaryMap[String(row.location_id)] = {
-  found: row.found_count || 0,
-  not_found: row.not_found_count || 0,
-  sold_out: row.sold_out_count || 0,
-}
+    summaryMap[String(row.store_id)] = {
+      found: row.found_count || 0,
+      not_found: row.not_found_count || 0,
+      sold_out: row.sold_out_count || 0,
+    }
   })
-
-  setSightingSummary(summaryMap)
 }
-    setLocations(mapped)
-    setLoading(false)
-  }
+
+const sightedIds = new Set(
+  Object.entries(summaryMap)
+    .filter(([_, value]) => value.found > 0)
+    .map(([id]) => id)
+)
+
+const displayStores: LocationWithDistance[] =
+  withDistance.map((store) => ({
+    ...store,
+    type: sightedIds.has(String(store.id))
+      ? "sighted"
+      : "candidate",
+  }))
+
+setSightingSummary(summaryMap)
+setLocations(displayStores)
+setLoading(false)
+ }
 
   async function selectLocation(location: LocationWithDistance) {
     setSelectedLocation(location)
@@ -357,9 +395,9 @@ if (locationIds.length > 0) {
     setLoading(true)
 
     const { data: links, error: linkError } = await supabase
-      .from("article_locations")
-      .select("article_id")
-      .eq("location_id", location.id)
+  .from("article_stores")
+  .select("article_id")
+  .eq("store_id", location.id)
 
     if (linkError) {
       setErrorMessage(linkError.message)
@@ -379,7 +417,7 @@ if (locationIds.length > 0) {
 
     const { data: articles, error: articleError } = await supabase
       .from("articles")
-      .select("id, title, image_url")
+      .select("id, title, image_url, type, url")
       .in("id", articleIds)
 
     if (articleError) {
@@ -406,9 +444,34 @@ if (locationIds.length > 0) {
     const aFound = sightingSummary[String(a.id)]?.found || 0
     const bFound = sightingSummary[String(b.id)]?.found || 0
 
-    return bFound - aFound
+    // 目撃数が多い順
+    if (bFound !== aFound) {
+      return bFound - aFound
+    }
+
+    // 同じなら近い順
+    if (typeof a.distance !== "number") return 1
+    if (typeof b.distance !== "number") return -1
+
+    return a.distance - b.distance
   })
 }, [filteredLocations, sightingSummary])
+
+const goodsArticles = useMemo(
+  () =>
+    articles.filter(
+      (article) =>
+        article.type !== "event" &&
+        article.type !== "news" &&
+        article.url?.includes("ip4.co.jp")
+    ),
+  [articles]
+)
+
+const eventArticles = useMemo(
+  () => articles.filter((article) => article.type === "event"),
+  [articles]
+)
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
@@ -483,7 +546,7 @@ if (locationIds.length > 0) {
             </div>
 
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
-              {articles.length}件
+              {goodsArticles.length}件
             </span>
           </div>
           
@@ -494,7 +557,7 @@ if (locationIds.length > 0) {
             </p>
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-2">
-              {articles.map((article) => (
+              {goodsArticles.map((article) => (
                 <div
                   key={article.id}
                   className={`w-[220px] shrink-0 rounded-3xl border p-3 transition ${
@@ -547,7 +610,54 @@ if (locationIds.length > 0) {
             </div>
           )}
         </section>
+         {eventArticles.length > 0 && (
+  <section className="mb-4 rounded-3xl bg-white p-4 shadow-sm">
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <div>
+        <h2 className="font-black">🎪 イベント・キャンペーン</h2>
+        <p className="mt-1 text-xs text-slate-400">
+          San-X公式から取得したイベント情報
+        </p>
+      </div>
 
+      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+        {eventArticles.length}件
+      </span>
+    </div>
+
+    <div className="flex gap-3 overflow-x-auto pb-2">
+      {eventArticles.map((article) => (
+        <a
+          key={article.id}
+          href={article.url || "#"}
+          target="_blank"
+          rel="noreferrer"
+          className="w-[260px] shrink-0 rounded-3xl border border-slate-100 bg-white p-3 transition hover:bg-slate-50"
+        >
+          {article.image_url ? (
+            <img
+              src={article.image_url}
+              alt={article.title}
+              className="h-32 w-full rounded-2xl object-cover"
+            />
+          ) : (
+            <div className="flex h-32 w-full items-center justify-center rounded-2xl bg-slate-100 text-xs text-slate-400">
+              Event
+            </div>
+          )}
+
+          <p className="mt-3 line-clamp-2 min-h-[40px] text-sm font-black">
+            {article.title}
+          </p>
+
+          <p className="mt-3 text-xs font-bold text-blue-600">
+            公式サイトで見る
+          </p>
+        </a>
+      ))}
+    </div>
+  </section>
+)}
         <section className="mb-4 grid gap-4 lg:grid-cols-2">
           <div className="rounded-3xl bg-white p-4 shadow-sm">
             <p className="text-xs font-black text-slate-400">選択中の商品</p>
@@ -589,7 +699,20 @@ if (locationIds.length > 0) {
                 商品を選択するとここに表示されます
               </p>
             )}
-          </div>
+              {selectedArticle && (
+  <div className="mt-4">
+    <SubmitSightingForm
+      articleId={selectedArticle.id}
+      articleTitle={selectedArticle.title}
+      onSubmitted={() => {
+        fetchRecentSightings()
+        selectArticle(selectedArticle)
+      }}
+    />
+  </div>
+)}
+
+</div>
 
           <div className="rounded-3xl bg-white p-4 shadow-sm">
             <p className="text-xs font-black text-slate-400">選択中の店舗</p>
@@ -756,6 +879,7 @@ if (locationIds.length > 0) {
           ) : (
             <div className="max-h-[460px] space-y-3 overflow-y-auto pr-1">
               {sortedLocations.map((location, index) => (
+                
                 <div
                   key={location.id}
                   className="w-full rounded-3xl border border-slate-100 bg-white p-4"
@@ -770,6 +894,15 @@ if (locationIds.length > 0) {
                       </div>
 
                       <div className="min-w-0 flex-1">
+                      {location.type === "sighted" ? (
+  <span className="rounded-full bg-orange-500 px-3 py-1 text-xs font-black text-white">
+    🔥 目撃あり
+  </span>
+) : (
+  <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-black text-slate-600">
+    📍 近隣候補
+  </span>
+)}
                         <p className="line-clamp-2 text-sm font-black">
                           {location.name}
                         </p>

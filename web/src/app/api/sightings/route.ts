@@ -13,7 +13,6 @@ export async function POST(req: Request) {
     const {
       article_id,
       store_id,
-      location_id,
       status,
       comment,
       store_name,
@@ -32,7 +31,6 @@ export async function POST(req: Request) {
       .insert({
         article_id: article_id || null,
         store_id: store_id || null,
-        location_id: location_id || null,
         status,
         comment: comment || null,
         store_name: store_name || null,
