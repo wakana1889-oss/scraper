@@ -1,9 +1,4 @@
-try {
-  const dotenv = await import("dotenv")
-  dotenv.config()
-} catch {
-  console.log("dotenv not found. Using environment variables directly.")
-}
+
 
 console.log("URL:", process.env.SUPABASE_URL)
 console.log("KEY:", process.env.SUPABASE_KEY?.slice(0, 20))
