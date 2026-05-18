@@ -13,14 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "リラックマのガチャ設置場所まとめ",
+  title: "リラックマガチャ設置場所データベース",
   verification: {
   google: "oKdEBQpwzWGBfBdZ48Rby5jnD0Mf5hKFadmSksxIkQo",
 },
   description:
-    "リラックマ・コリラックマ・キイロイトリ・チャイロイコグマのガチャガチャ設置場所や目撃情報を探せるマップサービスです。",
+  "リラックマ・コリラックマ・キイロイトリ・チャイロイコグマのガチャガチャ設置場所や目撃情報を探せるデータベースサービスです。",
   openGraph: {
-    title: "リラックマのガチャ設置場所まとめ",
+    title: "リラックマガチャ設置場所データベース",
     description:
       "リラックマのガチャガチャ設置場所・候補店舗・目撃情報をまとめています。",
     images: [
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "リラックマのガチャ設置場所まとめ",
+    title: "リラックマガチャ設置場所データベース",
     description:
       "リラックマのガチャガチャ設置場所・候補店舗・目撃情報を探せるマップサービスです。",
     images: ["/rilakkuma-hero.png"],

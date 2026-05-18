@@ -549,9 +549,9 @@ const eventArticles = useMemo(
       </p>
 
       <h1 className="mt-2 text-3xl font-black leading-tight text-slate-900 md:text-5xl">
-        リラックマの
+        リラックマ
         <br />
-        ガチャ設置場所まとめ
+        ガチャ設置場所データベース
       </h1>
 
       <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
