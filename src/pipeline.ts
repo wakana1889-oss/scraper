@@ -1,5 +1,9 @@
-import dotenv from "dotenv"
-dotenv.config()
+try {
+  const dotenv = await import("dotenv")
+  dotenv.config()
+} catch {
+  console.log("dotenv not found. Using environment variables directly.")
+}
 
 console.log("URL:", process.env.SUPABASE_URL)
 console.log("KEY:", process.env.SUPABASE_KEY?.slice(0, 20))
@@ -59,17 +63,17 @@ async function upsertArticle(item: ScrapedItem) {
   const { data, error } = await supabase
     .from("articles")
     .upsert(
-      {
-        site: item.site,
-        type: item.type || "goods",
-        url: item.url,
-        title: item.title,
-        image_url: item.image_url,
-        price: item.price || null,
-        release_date: item.release_date || null,
-        manufacturer: item.manufacturer || null,
-        published_at: item.published_at || null,
-      },
+  {
+    site: item.site,
+    type: item.type || "goods",
+    url: item.url,
+    title: item.title,
+    image_url: item.image_url,
+    price: item.price || null,
+    release_date: item.release_date || null,
+    manufacturer: item.manufacturer || null,
+    published_at: item.published_at || null,
+  },
       { onConflict: "url" }
     )
     .select("id")
