@@ -28,6 +28,17 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps
 
+              - name: Debug pipeline
+        run: |
+          echo "commit:"
+          git rev-parse HEAD
+          echo "pipeline head:"
+          sed -n '1,20p' src/pipeline.ts
+          echo "dotenv search:"
+          grep -R "dotenv" -n src || true
+          echo "package dotenv:"
+          grep -R '"dotenv"' -n package.json package-lock.json || true
+
       - name: Run scraper
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
