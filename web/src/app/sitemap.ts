@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
-import { MetadataRoute } from "next"
+import type { MetadataRoute } from "next"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,12 +9,19 @@ const supabase = createClient(
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://scraper-ten-eta.vercel.app"
 
-  const { data: articles, error } = await supabase
+  const { data: articles } = await supabase
     .from("articles")
-    .select("id")
+    .select("id, published_at")
+    .eq("site", "ip4")
+    .limit(500)
 
-  console.log("SITEMAP ARTICLES:", articles?.length)
-  console.log("SITEMAP ERROR:", error)
+  const productUrls =
+    articles?.map((article) => ({
+      url: `${baseUrl}/products/${article.id}`,
+      lastModified: article.published_at
+        ? new Date(article.published_at)
+        : new Date(),
+    })) || []
 
   return [
     {
@@ -22,8 +29,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
     },
     {
-      url: `${baseUrl}/test`,
+      url: `${baseUrl}/about`,
       lastModified: new Date(),
     },
+    {
+      url: `${baseUrl}/privacy`,
+      lastModified: new Date(),
+    },
+    ...productUrls,
   ]
 }
