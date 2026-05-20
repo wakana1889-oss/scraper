@@ -9,22 +9,21 @@ const supabase = createClient(
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://scraper-ten-eta.vercel.app"
 
-  const { data: articles } = await supabase
+  const { data: articles, error } = await supabase
     .from("articles")
-    .select("id, updated_at")
+    .select("id")
 
-  const articleUrls =
-    articles?.map((article) => ({
-      url: `${baseUrl}/products/${article.id}`,
-      lastModified: article.updated_at || new Date(),
-    })) || []
+  console.log("SITEMAP ARTICLES:", articles?.length)
+  console.log("SITEMAP ERROR:", error)
 
   return [
     {
       url: baseUrl,
       lastModified: new Date(),
     },
-
-    ...articleUrls,
+    {
+      url: `${baseUrl}/test`,
+      lastModified: new Date(),
+    },
   ]
 }
