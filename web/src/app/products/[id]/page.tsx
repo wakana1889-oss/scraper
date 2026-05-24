@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { createClient } from "@supabase/supabase-js"
 import type { Metadata } from "next"
 import SightingButtons from "@/components/SightingButtons"
+import ProductStoreList from "@/components/ProductStoreList"
 
 
 const supabase = createClient(
@@ -175,52 +176,11 @@ const sightingSummary: Record<
               {locations.length}件
             </span>
           </div>
+<ProductStoreList
+  articleId={article.id}
+  locations={locations}
+  />
 
-          {locations.length === 0 ? (
-            <p className="text-sm text-slate-400">設置店舗情報はまだありません</p>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2">
-              {locations.map((location) => (
-                <div
-                  key={location.id}
-                  className="rounded-2xl border border-slate-100 p-4"
-                >
-                  <p className="font-black">{location.name}</p>
-
-                  {location.address && (
-                    <p className="mt-1 text-sm leading-6 text-slate-500">
-                      {location.address}
-                    </p>
-                  )}
-<div className="mt-3 rounded-2xl bg-slate-50 p-3">
-  <p className="mb-2 text-xs font-black text-slate-500">
-    目撃情報
-  </p>
-
-  <div className="flex flex-wrap gap-2 text-xs font-black">
-    <span className="rounded-full bg-green-50 px-3 py-1.5 text-green-600">
-      ✅ あった {sightingSummary[String(location.id)]?.found || 0}
-    </span>
-
-    <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">
-      ❌ なかった {sightingSummary[String(location.id)]?.not_found || 0}
-    </span>
-
-    <span className="rounded-full bg-orange-50 px-3 py-1.5 text-orange-600">
-      ⚠️ 売り切れ {sightingSummary[String(location.id)]?.sold_out || 0}
-    </span>
-  </div>
-</div>
-                  <SightingButtons
-                    articleId={article.id}
-                    storeId={location.id}
-                    storeName={location.name}
-                    storeAddress={location.address}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
         </section>
 
         <section className="mt-5 rounded-3xl bg-white p-5 shadow-sm">
