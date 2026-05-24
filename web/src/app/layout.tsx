@@ -25,7 +25,7 @@ export const metadata: Metadata = {
       "リラックマのガチャガチャ設置場所・候補店舗・目撃情報をまとめています。",
     images: [
       {
-        url: "/rilakkuma-hero.png",
+        url: "/ogp-main.png",
         width: 1200,
         height: 630,
         alt: "リラックマのガチャ設置場所まとめ",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     title: "リラックマガチャ設置場所データベース",
     description:
       "リラックマのガチャガチャ設置場所・候補店舗・目撃情報を探せるマップサービスです。",
-    images: ["/rilakkuma-hero.png"],
+    images: ["/ogp-main.png"],
   },
 };
 

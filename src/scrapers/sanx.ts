@@ -50,7 +50,7 @@ export const sanxScraper = {
 
       await page.waitForTimeout(1000)
 
-      const data = await page.evaluate(() => {
+      const data = await page.evaluate((url) => {
         const title =
           document.querySelector("h1")?.textContent?.trim() ||
           document.title.trim() ||
@@ -88,7 +88,7 @@ export const sanxScraper = {
           image_url: imageUrl,
           published_at: dateText,
         }
-      })
+      }, url)
 
       return {
         site: "sanx",
