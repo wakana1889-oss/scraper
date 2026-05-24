@@ -74,35 +74,14 @@ export default async function ProductDetailPage({ params }: Props) {
 
   if (!article) notFound()
 
-  const { data: links } = await supabase
-    .from("article_locations")
-    .select("location_id")
-    .eq("article_id", id)
+  const { data: storeData } = await supabase
+  .from("stores")
+  .select("id, name, address, latitude, longitude")
+  .not("latitude", "is", null)
+  .not("longitude", "is", null)
+  .limit(20)
 
-  const locationIds = Array.from(
-    new Set((links || []).map((row: any) => row.location_id).filter(Boolean))
-  )
-
-  let locations: any[] = []
-
-  if (locationIds.length > 0) {
-    const { data } = await supabase
-      .from("locations")
-      .select("id, name, address, latitude, longitude")
-      .in("id", locationIds)
-
-    locations = data || []
-  }
-const { data: summaryData } = await supabase
-  .from("sighting_summary")
-  .select(`
-    location_id,
-    found_count,
-    not_found_count,
-    sold_out_count
-  `)
-  .eq("article_id", id)
-  .in("location_id", locationIds)
+let locations: any[] = storeData || []
 
 const sightingSummary: Record<
   string,
@@ -112,14 +91,6 @@ const sightingSummary: Record<
     sold_out: number
   }
 > = {}
-
-;(summaryData || []).forEach((row: any) => {
-  sightingSummary[String(row.location_id)] = {
-    found: row.found_count || 0,
-    not_found: row.not_found_count || 0,
-    sold_out: row.sold_out_count || 0,
-  }
-})
 
   const { data: otherArticles } = await supabase
     .from("articles")
